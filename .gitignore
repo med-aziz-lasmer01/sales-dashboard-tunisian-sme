@@ -1,0 +1,30 @@
+# === Secrets: NEVER commit these / hethom ma yetpushawch jemla ===
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+*credentials*.json
+secrets.yaml
+secrets.yml
+.aws/credentials
+
+# === Terraform (AWS home lab) ===
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform.lock.hcl
+crash.log
+
+# === Python ===
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# === Local data: keep sample data, ignore real dumps ===
+*.db
+*.sqlite3
+dump.sql

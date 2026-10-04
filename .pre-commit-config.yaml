@@ -1,0 +1,7 @@
+# Gitleaks pre-commit hook — blocks any commit that contains secrets.
+# Install once per repo:  pip install pre-commit  &&  pre-commit install
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
