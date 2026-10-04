@@ -88,13 +88,64 @@ df = pd.DataFrame(rows, columns=[
     "quantity", "unit_price_tnd", "discount_pct", "revenue_tnd", "profit_tnd",
 ])
 
-# sprinkle a few messy rows like real data (to be cleaned in analysis)
-mess = df.sample(8, random_state=7).copy()
-mess["region"] = mess["region"].str.lower()          # inconsistent casing
-df = pd.concat([df, mess], ignore_index=True).sample(frac=1, random_state=11).reset_index(drop=True)
+# ---------- inject realistic messiness (to be cleaned in analysis) ----------
+# Real-world mess: duplicates, casing, typos, missing values, mixed date
+# formats, whitespace, outliers, invalid quantities.
+df_m = df.copy()
+n = len(df_m)
+
+# 1. duplicate order IDs (~25 rows)
+dupes = df_m.sample(25, random_state=7)
+df_m = pd.concat([df_m, dupes], ignore_index=True)
+
+# 2. region casing + whitespace mess (~50 rows)
+idx = df_m.sample(30, random_state=11).index
+df_m.loc[idx, "region"] = df_m.loc[idx, "region"].str.lower()
+idx = df_m.sample(20, random_state=12).index
+df_m.loc[idx, "region"] = " " + df_m.loc[idx, "region"].astype(str) + " "
+
+# 3. typos in product names
+typo_map = {
+    "Huile d'Olive Extra Vierge 1L": "Huile d'Ol ive Extra Vierge 1L",
+    "Harissa Traditionnelle 200g": "Harisa Traditionnelle 200g",
+    "Dattes Deglet Nour 1kg": "Dattes Deglet Nour 1 Kg",
+    "Couscous Fin 1kg": "Couscous Fin 1KG",
+    "Miel de Thym 250g": "Miel de Thym  250g",
+}
+for correct, typo in typo_map.items():
+    mask = df_m["product"] == correct
+    if mask.sum():
+        t_idx = df_m[mask].sample(min(4, int(mask.sum())), random_state=13).index
+        df_m.loc[t_idx, "product"] = typo
+
+# 4. missing values: ~2% discounts, ~1% regions
+idx = df_m.sample(int(len(df_m) * 0.02), random_state=14).index
+df_m.loc[idx, "discount_pct"] = np.nan
+idx = df_m.sample(int(len(df_m) * 0.01), random_state=15).index
+df_m.loc[idx, "region"] = np.nan
+
+# 5. mixed date formats: ~2% as DD/MM/YYYY
+idx = df_m.sample(int(len(df_m) * 0.02), random_state=16).index
+df_m.loc[idx, "date"] = pd.to_datetime(df_m.loc[idx, "date"]).dt.strftime("%d/%m/%Y")
+
+# 6. channel casing mess (~45 rows)
+idx = df_m.sample(25, random_state=17).index
+df_m.loc[idx, "channel"] = df_m.loc[idx, "channel"].str.upper()
+idx = df_m.sample(20, random_state=18).index
+df_m.loc[idx, "channel"] = df_m.loc[idx, "channel"].str.lower()
+
+# 7. outliers: absurd quantities (5 rows) + negative (3 rows)
+out_idx = df_m.sample(5, random_state=19).index
+df_m.loc[out_idx, "quantity"] = 9999
+neg_idx = df_m.sample(3, random_state=20).index
+df_m.loc[neg_idx, "quantity"] = -5
+
+# shuffle like a real export
+df_m = df_m.sample(frac=1, random_state=21).reset_index(drop=True)
 
 out = "/home/hatch/workspace/portfolio/01-sales-dashboard-tunisian-sme/data/sales_data.csv"
-df.to_csv(out, index=False)
-print(f"rows={len(df)} cols={list(df.columns)}")
-print(df.head(3).to_string())
-print("date range:", df["date"].min(), "->", df["date"].max())
+df_m.to_csv(out, index=False)
+print(f"rows={len(df_m)} (clean base was {n}) cols={list(df_m.columns)}")
+print("mess injected: 25 dupes, casing/whitespace, typos, NaNs, mixed dates, outliers")
+print(df_m.head(3).to_string())
+print("date range:", df_m["date"].min(), "->", df_m["date"].max())

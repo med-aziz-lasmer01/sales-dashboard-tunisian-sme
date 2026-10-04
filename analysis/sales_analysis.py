@@ -18,14 +18,58 @@ VIS.mkdir(exist_ok=True)
 plt.rcParams.update({"figure.dpi": 150, "font.size": 10})
 
 # ---------- load & clean ----------
-df = pd.read_csv(DATA, parse_dates=["date"])
+# parse_dates can't handle mixed formats, so parse manually
+df = pd.read_csv(DATA, dtype={"date": str})
 print(f"raw rows: {len(df)}")
+clean_log = {"raw": len(df)}
 
-df["region"] = df["region"].str.strip().str.title()          # fix casing mess
-df = df.drop_duplicates(subset=["order_id"], keep="first")  # drop dup orders
+# dates: handle YYYY-MM-DD and DD/MM/YYYY
+df["date"] = pd.to_datetime(df["date"], format="mixed", dayfirst=True)
+
+# strip whitespace on text cols (NaN -> 'nan' string -> back to NaN)
+for c in ["product", "category", "region", "channel"]:
+    df[c] = df[c].astype(str).str.strip()
+    df[c] = df[c].replace({"nan": np.nan})
+
+# fix product typos (reverse of generator's typo_map)
+typo_fix = {
+    "Huile d'Ol ive Extra Vierge 1L": "Huile d'Olive Extra Vierge 1L",
+    "Harisa Traditionnelle 200g": "Harissa Traditionnelle 200g",
+    "Dattes Deglet Nour 1 Kg": "Dattes Deglet Nour 1kg",
+    "Couscous Fin 1KG": "Couscous Fin 1kg",
+    "Miel de Thym  250g": "Miel de Thym 250g",
+}
+df["product"] = df["product"].replace(typo_fix)
+
+# normalize casing
+df["region"] = df["region"].str.title()
+df["channel"] = df["channel"].str.title()
+
+# missing values: discount NaN -> 0 (no discount); region NaN -> 'Unknown'
+clean_log["discount_filled"] = int(df["discount_pct"].isna().sum())
+df["discount_pct"] = df["discount_pct"].fillna(0)
+clean_log["region_filled"] = int(df["region"].isna().sum())
+df["region"] = df["region"].fillna("Unknown")
+
+# drop duplicates, invalid quantities, outliers
+n0 = len(df)
+df = df.drop_duplicates(subset=["order_id"], keep="first")
+clean_log["dupes_dropped"] = n0 - len(df)
+n0 = len(df)
 df = df[df["quantity"] > 0].copy()
+clean_log["invalid_qty_dropped"] = n0 - len(df)
+n0 = len(df)
+df = df[df["quantity"] <= 500].copy()   # 9999-type outliers
+clean_log["outliers_dropped"] = n0 - len(df)
+
+# recompute revenue from cleaned qty/price/discount (single source of truth).
+# profit keeps the generator's cost-model values (documented in README).
+df["revenue_tnd"] = (df["quantity"] * df["unit_price_tnd"]
+                     * (1 - df["discount_pct"] / 100)).round(2)
+
 df["month"] = df["date"].dt.to_period("M").dt.to_timestamp()
-print(f"clean rows: {len(df)}")
+clean_log["clean"] = len(df)
+print("clean log:", clean_log)
 
 # ---------- KPIs ----------
 total_rev = df["revenue_tnd"].sum()

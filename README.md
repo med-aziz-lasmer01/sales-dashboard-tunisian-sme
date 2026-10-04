@@ -8,6 +8,8 @@
 A complete, client-style data analysis case study: from messy raw orders to
 an executive dashboard with business recommendations.
 
+![Monthly revenue by channel](visuals/monthly_revenue_by_channel.png)
+
 **Business:** *Dar El Baraka*, a fictional Tunis-based distributor of Tunisian
 food products (olive oil, Deglet Nour dates, harissa, grains, honey) selling
 through retail shops, wholesale partners and an online store.
@@ -21,10 +23,24 @@ The owner sees revenue growing but profit feels flat. Three questions:
 
 ## The Data
 
-- `data/sales_data.csv` — 2,468 raw order lines (Apr 2024 → Sep 2025), with
-  realistic messiness: duplicate order IDs, inconsistent region casing
-- `data/sales_data_clean.csv` — cleaned dataset (2,460 rows)
+- `data/sales_data.csv` — 2,485 raw order lines (Apr 2024 → Sep 2025), with
+  realistic messiness: **25 duplicate order IDs**, inconsistent region/channel
+  casing, leading/trailing whitespace, **product-name typos**
+  ("Harisa", "Huile d'Ol ive"), **~2% missing discounts**, ~1% missing regions,
+  **mixed date formats** (YYYY-MM-DD and DD/MM/YYYY), **quantity outliers**
+  (9999) and invalid negatives
+- `data/sales_data_clean.csv` — cleaned dataset (2,452 rows, 1.3% removed)
 - `data/monthly_summary.csv` — month-level aggregates
+
+## Testing
+
+`tests/test_pipeline.py` — 8 pytest checks, all passing:
+- no duplicate order IDs after cleaning
+- no missing values in critical columns
+- quantities positive, outliers removed
+- typos fixed, all dates parsed (both formats)
+- revenue formula spot-checked on 5 rows
+- monthly aggregates sum to the total revenue
 
 ## The Process
 
